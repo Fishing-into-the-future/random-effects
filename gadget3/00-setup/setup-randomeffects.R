@@ -4,19 +4,31 @@ random_actions <-
     list(
       if (random_recruitment){
         g3l_random_walk('recruitment',
-          #              substitute(log(avoid_zero(x)),
-                          substitute(x,
+                        substitute(x,
                                    list(x = 
-                                          g3_parameterized(paste0(
-                                            if (single_stock_model) gadgetutils::g3_stock_name(single_stock)
-                                            else gadgetutils::g3_stock_name(imm_stock, 'species'), '.rec',
-                                            ifelse(exponentiate_recruitment, '_exp', '')
-                                          ),
-                                          by_year = TRUE,
-                                          random = penalise_recruitment == 0))),
+                                          {if (!exponentiate_recruitment){
+                                            substitute(log(avoid_zero(x2)),
+                                                       list(x2 = 
+                                                              g3_parameterized(paste0(
+                                                                if (single_stock_model) gadgetutils::g3_stock_name(single_stock)
+                                                                else gadgetutils::g3_stock_name(imm_stock, 'species'), '.rec',
+                                                                ifelse(exponentiate_recruitment, '_exp', '')
+                                                                ),
+                                                                by_year = TRUE,
+                                                                random = penalise_recruitment == 0)))
+                                            }else{
+                                              g3_parameterized(paste0(
+                                                if (single_stock_model) gadgetutils::g3_stock_name(single_stock)
+                                                else gadgetutils::g3_stock_name(imm_stock, 'species'), '.rec',
+                                                ifelse(exponentiate_recruitment, '_exp', '')
+                                                ),
+                                                by_year = TRUE,
+                                                random = penalise_recruitment == 0)
+                                              }}
+                                        )),
                         weight = g3_parameterized('rnd_recruitment_weight',scale = -1),
                         sigma_f = g3_parameterized('bling_recruitment_sigma'))  
-      } else NULL  
+        } else NULL  
   ),
   
   if (random_initial){

@@ -11,11 +11,15 @@ library(gadgetplots)
 library(tidyverse)
 library(g3experiments)
 
+## Local version of g3l_bound_penalty that allows bounding of random effects
+## bounding random effects crashes model atm
+#source("exploratory_models/gadget3/src/g3l_bounds_penalty.R")
+
 ## Model directory
 base_dir <- 'exploratory_models/gadget3'
 
 ## Model version
-vers <- 'models/04-recran'
+vers <- 'models/04-ranexpclamprec_newton50it_tol10'
 
 ## -----------------------------------------------------------------------------
 ## OPTIONS 
@@ -36,7 +40,7 @@ include_bound_penalty <- TRUE
 init_rec_scalar <- FALSE       # single scalar for initial conditions and recruitment?
 timevarying_K <- FALSE        # time-varying K (vonb growth parameter)
 exponentiate_bbin <- TRUE     # exponentiate the beta-binomial parameter
-exponentiate_recruitment <- FALSE   # exponentiate recruitment parameters (necessary to include bounds for recruitment as a random effect)
+exponentiate_recruitment <- TRUE   # exponentiate recruitment parameters (necessary to include bounds for recruitment as a random effect)
 
 ## Iterative re-weighting:
 cv_floor <- 0
@@ -60,6 +64,7 @@ random_recruitment <- TRUE
 random_initial <- FALSE
 penalise_recruitment <- 0
 penalise_initial <- 0
+#bound_random_effects <- TRUE   
 wgts_vers <- '04-BASELINE-single_stock_expbbin_tol10it3'
 
 fix_initial_conditions <- TRUE
@@ -73,14 +78,15 @@ initial_abund_mode <- 2
 init_sd_parametric <- FALSE
 
 ## Optimisation controls:
-# used for BFGS in iterative, retro, jitter, leaveout
+usenlminb <- FALSE
+nlminb_control <- list(trace=1, eval.max=2000, iter.max=1000, rel.tol=1e-10)
+  
+# For g3_optim, BFGS in iterative, retro, jitter, leaveout
 control_list <- list(maxit = 3000, reltol = 1e-10)#.Machine$double.eps^2)
+random_control <- list(maxit = 1000, reltol = 1e-10)#.Machine$double.eps^2)#1e-10)
 
-# for optimisations including random effects
-# stats::optim part
-random_outer_control <- list(maxit = 1000, tol = 1e-10)
 # TMB::newton optimisations
-random_inner_control <- list(maxit = 100, tol = 1e-08)
+newton_control <- list(maxit = 50, tol = 1e-10, tol10 = 0)
 
 
 ## -----------------------------------------------------------------------------
@@ -190,7 +196,7 @@ tmb_param <-
   g3_init_guess('lencv', 0.2, 0.1, 0.3, 0) %>% 
   g3_init_guess('rec.sd', 5, 4, 20, 1) %>% 
   g3_init_guess('init.scalar', 50, 1, 100, 1) %>% 
-  g3_init_guess('rec.scalar', 50, 1, 100, 1) %>% 
+  g3_init_guess('rec.scalar', 5, 1, 10, 1) %>% 
   g3_init_guess('init.rec.scalar', 50, 1, 100, 1) %>% 
   #g3_init_guess('\\.rec.sigma', 0.2, -1, 1, 0) %>% 
   g3_init_guess('Linf', 140, 100, 200, 1) %>% 
@@ -262,9 +268,10 @@ if (any(grepl('\\.init\\.sd', tmb_param$switch))){
 
 }
 
+## Turn off the preliminary and terminal year random effects, still estimate the terminal one
 if (random_recruitment){
-  tmb_param[tmb_param$switch == 'bling.rec.1982', 'random'] <- FALSE
-  tmb_param[tmb_param$switch == 'bling.rec.2022', c('optimise', 'random')] <- c(TRUE, FALSE)
+  tmb_param[tmb_param$switch %in% c('bling.rec.1982', 'bling.rec_exp.1982'), 'random'] <- FALSE
+  tmb_param[tmb_param$switch %in% c('bling.rec.2022', 'bling.rec_exp.2022'), c('optimise', 'random')] <- c(TRUE, FALSE)
 }
 
 if (fix_initial_conditions){
@@ -278,7 +285,7 @@ if (fix_initial_conditions){
 
 if (include_bound_penalty){
   actions <- c(actions, list(g3l_bounds_penalty(tmb_param %>% 
-                                                  filter(!grepl('_sigma$|_sigma_exp$',switch), optimise | random))))
+                                                  filter(!grepl('_sigma$|_sigma_exp$',switch)))))#, include_random = exponentiate_recruitment && bound_random_effects)))
   model <- g3_to_r(actions)
   tmb_model <- g3_to_tmb(actions)
 }
@@ -307,17 +314,24 @@ if (TRUE){
   # Compile and generate TMB ADFun (see ?TMB::MakeADFun)
   obj.fun <- g3_tmb_adfun(tmb_model, 
                           jitter_params(tmb_param), 
-                          inner.control = random_inner_control)
+                          inner.control = newton_control)
   
   obj.fun$env$tracepar <- TRUE
   
-  out <- optim(par = obj.fun$par, 
-               fn = obj.fun$fn, 
-               gr = obj.fun$gr,
-               method = 'BFGS',
-               control = c(random_outer_control, 
-                           list(parscale = g3_tmb_parscale(tmb_param)))
-               )
+  if (usenlminb){
+    out <- nlminb(start = obj.fun$par, 
+                  objective = obj.fun$fn, 
+                  gradient = obj.fun$gr, 
+                  control = nlminb_control)
+  }else{
+    out <- optim(par = obj.fun$par, 
+                 fn = obj.fun$fn, 
+                 gr = obj.fun$gr,
+                 method = 'BFGS',
+                 control = c(random_control, 
+                             list(parscale = g3_tmb_parscale(tmb_param)))
+    )  
+  }
   
   sdout <- TMB::sdreport(obj.fun, out$par)
   
@@ -334,7 +348,7 @@ if (TRUE){
   newpars$value$report_detail <- 1L
   
   ## Fit
-  fit <- g3_fit(modcpp, newpars)
+  fit <- g3_fit(g3_to_r(attr(modcpp, 'actions')), newpars)
   save(fit, file = file.path(base_dir, vers, 'fit.Rdata'))
   gadget_plots(fit, file.path(base_dir, vers, 'figs'), file_type = 'html')
   
