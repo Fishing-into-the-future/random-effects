@@ -1,0 +1,10 @@
+                              comp   df      value weight
+  adist_surveyindices_log_si_aut_1   22 42.5361232      1
+ adist_surveyindices_log_si_aut_2a   22 48.1765048      1
+ adist_surveyindices_log_si_aut_2b   22 32.3368083      1
+ adist_surveyindices_log_si_aut_3a   22 18.2299862      1
+ adist_surveyindices_log_si_aut_3b   22  7.2147854      1
+ adist_surveyindices_log_si_aut_3c   22  5.8463046      1
+ adist_surveyindices_log_si_aut_3d   22  4.8419111      1
+      cdist_sumofsquares_ldist_aut  575  0.6315422      1
+     cdist_sumofsquares_ldist_comm 1806  7.4092706      1

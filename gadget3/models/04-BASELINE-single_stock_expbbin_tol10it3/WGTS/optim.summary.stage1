@@ -1,0 +1,10 @@
+     group     type             id method maxiter reltol optim_complete
+      comm g3.optim       for comm   BFGS    3000  1e-10              1
+ ldist_aut g3.optim  for ldist_aut   BFGS    3000  1e-10              1
+     sind1 g3.optim      for sind1   BFGS    3000  1e-10              1
+     sind2 g3.optim      for sind2   BFGS    3000  1e-10              1
+ fn_calls gd_calls convergence    score return_complete comment return_complete
+    34311     3000       FALSE 3545.413                                       1
+    38025     3000       FALSE  2104.79                                       1
+     3433      484        TRUE 1158.501                                       1
+    27858     2283        TRUE 6870.287                                       1

@@ -1,0 +1,15 @@
+                                                     .id     group ldist_aut
+                                              ldist_comm      comm 0.8349438
+                                               ldist_aut ldist_aut         1
+                log_si_aut_1.log_si_aut_2a.log_si_aut_2b     sind1 0.5759005
+ log_si_aut_3a.log_si_aut_3b.log_si_aut_3c.log_si_aut_3d     sind2 0.9175698
+ ldist_comm log_si_aut_1 log_si_aut_2a log_si_aut_2b log_si_aut_3a
+          1     1.073705       0.99475     0.9864254     0.6945764
+  1.6504894     1.058574      1.091048     1.3073821     0.9918279
+  0.9502211            1             1             1     0.6861285
+   1.651403       1.0804      1.107883     1.3037015             1
+ log_si_aut_3b log_si_aut_3c log_si_aut_3d
+     0.8953727      1.042702     0.9463229
+      0.996285       1.00414     1.0531098
+     0.8639568      1.085526     1.0879115
+             1             1             1
