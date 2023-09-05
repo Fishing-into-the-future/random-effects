@@ -19,7 +19,7 @@ library(g3experiments)
 base_dir <- 'exploratory_models/gadget3'
 
 ## Model version
-vers <- 'models/04-ranexpclamprec_newton50it_tol10'
+vers <- 'models/04-ranclamprec_newton50it_tol10_initest'
 
 ## -----------------------------------------------------------------------------
 ## OPTIONS 
@@ -40,7 +40,7 @@ include_bound_penalty <- TRUE
 init_rec_scalar <- FALSE       # single scalar for initial conditions and recruitment?
 timevarying_K <- FALSE        # time-varying K (vonb growth parameter)
 exponentiate_bbin <- TRUE     # exponentiate the beta-binomial parameter
-exponentiate_recruitment <- TRUE   # exponentiate recruitment parameters (necessary to include bounds for recruitment as a random effect)
+exponentiate_recruitment <- FALSE   # exponentiate recruitment parameters (necessary to include bounds for recruitment as a random effect)
 
 ## Iterative re-weighting:
 cv_floor <- 0
@@ -64,10 +64,11 @@ random_recruitment <- TRUE
 random_initial <- FALSE
 penalise_recruitment <- 0
 penalise_initial <- 0
+bound_random_cv <- FALSE
 #bound_random_effects <- TRUE   
 wgts_vers <- '04-BASELINE-single_stock_expbbin_tol10it3'
 
-fix_initial_conditions <- TRUE
+fix_initial_conditions <- FALSE
 
 
 maxlengthgroupgrowth <- 5  # Maximum length group growth
@@ -225,8 +226,8 @@ tmb_param <-
   g3_init_guess('\\.p4$', 0.02, 0, 1e3, 1) %>%
   
   ## Random effects/penalities
-  g3_init_guess('recruitment_sigma', 0.2, 0.01, 10, ifelse(penalise_recruitment == 0, 1, 0)) %>% 
-  g3_init_guess('initial_sigma', 0.2, 0.01, 10, ifelse(penalise_initial == 0, 1, 0)) %>% 
+  g3_init_guess('recruitment_sigma', 0.2, 0.01, 0.4, ifelse(penalise_recruitment == 0, 1, 0)) %>% 
+  g3_init_guess('initial_sigma', 0.2, 0.01, 0.4, ifelse(penalise_initial == 0, 1, 0)) %>% 
   g3_init_guess('rnd_recruitment_weight', 1, 0.01, 100, 0) %>% 
   g3_init_guess('rnd_initial_weight', 1, 0.01, 100, 0) %>% 
   g3_init_guess('zero', 0, -1, 1, 0) %>% 
@@ -285,9 +286,11 @@ if (fix_initial_conditions){
 
 if (include_bound_penalty){
   actions <- c(actions, list(g3l_bounds_penalty(tmb_param %>% 
-                                                  filter(!grepl('_sigma$|_sigma_exp$',switch)))))#, include_random = exponentiate_recruitment && bound_random_effects)))
+                                                  filter(!grepl(
+                                                    ifelse(bound_random_cv, '^$', '_sigma$|_sigma_exp$'),switch)))))#, include_random = exponentiate_recruitment && bound_random_effects)))
   model <- g3_to_r(actions)
   tmb_model <- g3_to_tmb(actions)
+  tmb_param <- tmb_param[match(attr(tmb_model, 'parameter_template')$switch, tmb_param$switch),]
 }
 
 ## Run the R-model
