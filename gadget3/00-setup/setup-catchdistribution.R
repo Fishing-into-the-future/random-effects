@@ -4,14 +4,14 @@
 ##
 ## -----------------------------------------------------------------------------
 
-minage <- gadget3::g3_stock_def(imm_stock, 'minage')
-maxage <- gadget3::g3_stock_def(mat_stock, 'maxage')
-minlen <- gadget3::g3_stock_def(imm_stock, 'minlen') |> min()
-maxlen <- gadget3::g3_stock_def(mat_stock, 'minlen') |> max()
-dl <- c(diff(gadget3::g3_stock_def(imm_stock, 'minlen')),
-        diff(gadget3::g3_stock_def(mat_stock, 'minlen'))) |> min() 
-
-
+minage <- lapply(stocks, gadget3::g3_stock_def, 'minage') |> unlist() |> min()
+maxage <- lapply(stocks, gadget3::g3_stock_def, 'maxage') |> unlist() |> max()
+minlen <- lapply(stocks, gadget3::g3_stock_def, 'minlen') |> unlist() |> min()
+maxlen <- 
+  lapply(stocks, gadget3::g3_stock_def, 'maxlen') |> 
+  unlist() |> (\(.) replace(., is.infinite(.), NA))() |> max(na.rm = TRUE)
+dl <- lapply(stocks, function(x) diff(gadget3::g3_stock_def(x, 'minlen'))) |> unlist() |> min()
+  
 ## Query length data to create catch distribution components
 ## AUTUMN SURVEY
 ldist.aut <-
@@ -102,7 +102,13 @@ aldist.bmt <-
                       defaults))
 
 ## OUTPUT
-save(ldist.aut, matp.aut,
-     ldist.lln, ldist.bmt, aldist.bmt, ldist.comm,
-     file = file.path(base_dir, 'data', 'catchdistribution_data.Rdata'))
+if (run_bootstrap){
+  save(ldist.aut, matp.aut,
+       ldist.lln, ldist.bmt, aldist.bmt, ldist.comm,
+       file = file.path(base_dir, 'data', 'catchdistribution_bootstrap_data.Rdata'))
+}else{
+  save(ldist.aut, matp.aut,
+       ldist.lln, ldist.bmt, aldist.bmt, ldist.comm,
+       file = file.path(base_dir, 'data', 'catchdistribution_data.Rdata'))
+}
 

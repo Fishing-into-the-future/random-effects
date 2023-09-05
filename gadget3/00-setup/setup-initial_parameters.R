@@ -32,8 +32,8 @@ init.sigma <-
 ## Initial coefficients for sd
 init.sigma.coef <- 
   init.sigma %>% 
-  filter(age >= gadget3::g3_stock_def(imm_stock, 'minage') & 
-         age <= gadget3::g3_stock_def(mat_stock, 'maxage')) %>% 
+  filter(age >= min(unlist(lapply(stocks, gadget3::g3_stock_def, 'minage'))) & 
+         age <= max(unlist(lapply(stocks, gadget3::g3_stock_def, 'minage')))) %>% 
   lm(I(ms/ml)~I(1/age) + age, data = .) %>% 
   coefficients() %>% 
   setNames(c('alpha', 'beta', 'gamma'))

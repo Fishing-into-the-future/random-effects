@@ -16,10 +16,10 @@ library(g3experiments)
 #source("exploratory_models/gadget3/src/g3l_bounds_penalty.R")
 
 ## Model directory
-base_dir <- 'exploratory_models/gadget3'
+base_dir <- 'gadget3'
 
 ## Model version
-vers <- 'models/04-ranclamprec_newton50it_tol10_initest'
+vers <- 'models/04-BASELINE-single_stock_expbbin_tol10it3'
 
 ## -----------------------------------------------------------------------------
 ## OPTIONS 
@@ -33,7 +33,7 @@ run_iterative <- FALSE
 run_jitter <- FALSE
 run_retro <- FALSE
 run_leaveout <- FALSE
-run_bootstrap <- FALSE
+run_bootstrap <- TRUE
 
 ## Parameter option:
 include_bound_penalty <- TRUE
@@ -59,8 +59,15 @@ dome_comm <- FALSE             # Only applies if single_fleet == TRUE
 dome_bmt <- FALSE             # Only applies if single_fleet == FALSE
 dome_lln <- FALSE             # Only applies if single_fleet == FALSE
 
+## Bootstrap
+boot_repl <- 1
+boot_short <- TRUE
+nboots <- 100
+boot_name <- 'BOOTSTRAP'
+
+
 ## Random effects
-random_recruitment <- TRUE
+random_recruitment <- FALSE
 random_initial <- FALSE
 penalise_recruitment <- 0
 penalise_initial <- 0
@@ -148,7 +155,7 @@ if (single_stock_model){
 
 
 ## Load data objects ----------------------------------------------------------
-if(read_data){
+if(read_data && !run_bootstrap){
   mdb <- mfdb('Iceland', db_params = list(host = 'mfdb.hafro.is'))
   #mdb <- mfdb("../../mfdb/copy/iceland.duckdb")
   source(file.path(base_dir, '00-setup', 'setup-fleet-data.R'))
@@ -158,6 +165,7 @@ if(read_data){
 } else {
   fs::dir_ls(file.path(base_dir, 'data')) %>%
     stringr::str_subset('.Rdata') %>%
+    stringr::str_subset('bootstrap',negate = TRUE) %>% 
     lapply(load,.GlobalEnv)
 }
 
@@ -169,7 +177,6 @@ source(file.path(base_dir, '00-setup', 'setup-likelihood.R'))  # Generates likel
 source(file.path(base_dir, '00-setup', 'setup-randomeffects.R'))  # Generates random actions
 
 ##### Compile the r- and tmb-based models ######################################
-
 
 ## Collate actions
 actions <- c(
@@ -307,7 +314,7 @@ save(tmb_model, file = file.path(base_dir, vers, 'tmb_model.Rdata'))
 
 ## -----------------------------------------------------------------------------
 
-if (TRUE){
+if (random_initial || random_recruitment){
   
   tmp <- params_final[grepl('weight$', params_final$switch), 'switch']
   tmp <- tmp[tmp %in% tmb_param$switch]
@@ -485,6 +492,115 @@ if (run_retro){
   #                   num.years = 10)
 }
 
+################################################################################
+##### Setup book strap #########################################################
+################################################################################
+
+if(run_bootstrap && read_data){
+  
+  if (FALSE){
+    badreits <- c(c(1011, 1013, 1014, 1091, 1094, 1121, 1133, 1141, 1146, 1151), ## Zeros
+                  c(1012, 1021, 1022, 1031, 1041, 1051, 1052, 1093, 1111,1101,
+                    1112,1121,1131,1132,1133,1141,1146,1151,1042,1032,1053))
+    
+    newreits <- reitmapping %>% filter(!(SUBDIVISION %in% badreits))
+  }else{
+    newreits <- reitmapping
+  }
+  
+  ## First - setup defaults
+  defaults <- 
+    within(defaults,
+           {area = mfdb_bootstrap_group(nboots,
+                                        mfdb_group('1' = unique(newreits$SUBDIVISION)),
+                                        seed = 2459)})
+  mdb <- mfdb('Iceland', db_params = list(host = 'mfdb.hafro.is'))
+  
+  ## Second - catch distributions
+  source(file.path(base_dir, '00-setup', 'setup-catchdistribution.R'))
+  ## Third - indices
+  source(file.path(base_dir, '00-setup', 'setup-indices.R'))
+  
+  # boot.ind <- list()
+  # for(i in seq_along(defaults$area)){
+  #   boot.ind[[i]] <- 
+  #     corr_aut.ind %>%
+  #     ungroup() %>% 
+  #     mutate(number = number * rlnorm(dplyr::n(),sdlog = 0.17)) %>% 
+  #     split(.$length) %>% 
+  #     map(function(x){attributes(x) <- attributes(aut.ind[[1]][[x$length[1]]]);x})
+  # }
+  # save(boot.ind, file=file.path(base_dir,'data','bootstrap_indices.Rdata'))
+  
+}
+
+if (run_bootstrap){
+  
+  fs::dir_ls(file.path(base_dir, 'data')) %>%
+    stringr::str_subset('.Rdata') %>%
+    stringr::str_subset('_bootstrap_') %>% 
+    lapply(load,.GlobalEnv)
+  
+  load(file = file.path(base_dir, vers, 'WGTS/params_final.Rdata'))
+  
+  boot_model <- list()
+  for(boot_repl in 1:nboots){
+    source(file.path(base_dir, '00-setup', 'setup-likelihood.R'))  # Generates likelihood_actions
+    boot_actions <- 
+      c(stock_actions,
+        fleet_actions,
+        likelihood_actions,
+        time_actions,
+        list(g3l_bounds_penalty(tmb_param)))
+    boot_model[[boot_repl]] <- g3_to_tmb(boot_actions)
+  } 
+  
+  fs::dir_create(file.path(base_dir, vers, boot_name))
+  save(boot_model, file=file.path(base_dir, vers, boot_name,'boot_model.Rdata'))
+  
+  range <- list(1:(nboots/2),(nboots/2+1):nboots) 
+  boot_run <- boot_run_tmp <- list()
+  
+  for(bb in 1:length(range)){
+    boot_run_tmp[[bb]] <- 
+      parallel::mclapply(range[[bb]],function(x) {
+        
+        if(boot_short){
+          try(g3_optim(boot_model[[x]], params_final, control = control_list)) 
+          
+        } else {
+          
+          
+          try(g3_iterative(file.path(base_dir, vers),
+                           wgts = paste('BOOTSTRAP/WGTS',x,sep='_'),
+                           boot_model[[x]],
+                           params_final,
+                           grouping = grouping,
+                           cv_floor = cv_floor,
+                           #resume_final = TRUE,
+                           control = control_list,
+                           use_parscale = TRUE,
+                           mc.cores = 1))
+        }
+      },
+      mc.cores = 35)
+  }
+  
+  boot_run <- flatten(boot_run_tmp)
+  
+  save(boot_run, file = file.path(base_dir, vers, boot_name, 'boot_run.Rdata')) 
+  save(boot_model, file = file.path(base_dir, vers, boot_name, 'boot_model.Rdata')) 
+  
+  
+  boot_fit <- 
+    1:nboots %>%  
+    set_names(paste0('bs',1:nboots)) %>% 
+    purrr::map(function(x) try(g3_fit(model = boot_model[[x]] ,params = boot_run[[x]])) )
+  
+  save(boot_fit, file = file.path(base_dir, vers, boot_name, 'boot_fit.Rdata'))     
+  
+  
+}
 
 ## Iterative re-weighting step-by-step
 if (FALSE){

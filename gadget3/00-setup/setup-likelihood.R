@@ -14,7 +14,7 @@ likelihood_actions <- list(
     
     g3l_catchdistribution(
       'ldist_comm',
-      obs_data = ldist.comm[[1]],
+      obs_data = ldist.comm[[boot_repl]],
       fleets = list(comm),
       stocks = stocks,
       g3l_distribution_sumofsquares(),
@@ -26,7 +26,7 @@ likelihood_actions <- list(
     c(
       g3l_catchdistribution(
       'ldist_lln',
-      obs_data = ldist.lln[[1]],
+      obs_data = ldist.lln[[boot_repl]],
       fleets = list(lln),
       stocks = stocks,
       g3l_distribution_sumofsquares(),
@@ -35,7 +35,7 @@ likelihood_actions <- list(
     
     g3l_catchdistribution(
       'ldist_bmt',
-      obs_data = ldist.bmt[[1]] %>%
+      obs_data = ldist.bmt[[boot_repl]] %>%
         filter(!(year == 2020 & step == 2)),
       fleets = list(bmt),
       stocks = stocks,
@@ -46,7 +46,7 @@ likelihood_actions <- list(
     if (bmt_age){
       g3l_catchdistribution(
         'aldist_bmt',
-        (aldist.bmt[[1]]),
+        (aldist.bmt[[boot_repl]]),
         fleets = list(bmt),
         stocks = stocks,
         g3l_distribution_sumofsquares(over = {if (stratified) c('area', 'length') else 'area' }),
@@ -58,7 +58,7 @@ likelihood_actions <- list(
   
   g3l_catchdistribution(
     'ldist_aut',
-    obs_data = ldist.aut[[1]] %>% filter(year > 1999, year != 2011),
+    obs_data = ldist.aut[[boot_repl]] %>% filter(year > 1999, year != 2011),
     fleets = list(aut),
     stocks = stocks,
     g3l_distribution_sumofsquares(),
@@ -69,7 +69,7 @@ likelihood_actions <- list(
     
     g3l_catchdistribution(
       'matp_aut',
-      (matp.aut[[1]] %>% filter(year > 1999, year != 2011) %>% 
+      (matp.aut[[boot_repl]] %>% filter(year > 1999, year != 2011) %>% 
          rename(stock = maturity_stage) %>%
          mutate(stock = recode(as.factor(stock), blingimm = 'bling_imm', blingmat = 'bling_mat'))),
       fleets = list(aut),
@@ -81,7 +81,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_1',
-    (aut.SI$len20 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len20 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = if (slope_early_SIs) NULL else 1), 
@@ -90,7 +90,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_2a',
-    (aut.SI$len52 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len52 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = if (slope_early_SIs) NULL else 1), 
@@ -99,7 +99,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_2b',
-    (aut.SI$len60 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len60 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = 1),
@@ -108,7 +108,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_3a',
-    (aut.SI$len72 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len72 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = 1),
@@ -117,7 +117,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_3b',
-    (aut.SI$len80 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len80 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = 1),
@@ -126,7 +126,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_3c',
-    (aut.SI$len92 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len92 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = 1),
@@ -135,7 +135,7 @@ likelihood_actions <- list(
   
   g3l_abundancedistribution(
     'si_aut_3d',
-    (aut.SI$len100 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
+    (aut.SI[[boot_repl]]$len100 %>% filter(year > 1999, year != 2011)) %>% filter(year < tyr - peel),
     fleets = list(),
     stocks = stocks,
     g3l_distribution_surveyindices_log(beta = 1),
