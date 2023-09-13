@@ -20,7 +20,7 @@ base_dir <- 'gadget3'
 
 ## Model version
 #vers <- 'models/04-BASELINE-single_stock_expbbin_tol10it3'
-vers <- 'models/04-ranrec_initest'
+vers <- 'models/04-ranrec_raninit_ranM'
 
 ## -----------------------------------------------------------------------------
 ## OPTIONS 
@@ -40,9 +40,11 @@ run_bootstrap <- FALSE
 include_bound_penalty <- TRUE
 init_rec_scalar <- FALSE       # single scalar for initial conditions and recruitment?
 timevarying_K <- FALSE        # time-varying K (vonb growth parameter)
+timevarying_M <- TRUE
 exponentiate_bbin <- TRUE     # exponentiate the beta-binomial parameter
 exponentiate_recruitment <- FALSE   # exponentiate recruitment parameters (necessary to include bounds for recruitment as a random effect)
 exponentiate_init <- FALSE
+exponentiate_M <- FALSE
 
 ## Iterative re-weighting:
 cv_floor <- 0
@@ -71,9 +73,11 @@ boot_name <- 'BOOTSTRAP'
 ## Random effects
 random_recruitment <- TRUE
 random_initial <- FALSE
-random_initial_randomwalk <- TRUE
+random_initial_randomwalk <- FALSE
+random_M <- TRUE
 penalise_recruitment <- 0
 penalise_initial <- 0
+penalise_M <- 0
 bound_random_cv <- FALSE
 #bound_random_effects <- TRUE   
 wgts_vers <- '04-BASELINE-single_stock_expbbin_tol10it3'
@@ -91,13 +95,13 @@ init_sd_parametric <- FALSE
 ## Optimisation controls:
 usenlminb <- FALSE
 nlminb_control <- list(trace=1, eval.max=2000, iter.max=1000, rel.tol=1e-10)
-  
+
 # For g3_optim, BFGS in iterative, retro, jitter, leaveout
 control_list <- list(maxit = 3000, reltol = 1e-10)#.Machine$double.eps^2)
-random_control <- list(maxit = 1000, reltol = 1e-10)#.Machine$double.eps^2)#1e-10)
+random_control <- list(maxit = 5, reltol = 1e-10)#.Machine$double.eps^2)#1e-10)
 
 # TMB::newton optimisations
-newton_control <- list(maxit = 50, tol = 1e-08, tol10 = 0)
+newton_control <- list(maxit = 100, tol = 1e-05)
 
 
 ## -----------------------------------------------------------------------------
@@ -105,10 +109,10 @@ newton_control <- list(maxit = 50, tol = 1e-08, tol10 = 0)
 tyr <- lubridate::year(Sys.Date())
 
 year_range <- { if (bmt_age) 1970 else 1982 }:(tyr - 1)
-#year_range <- 2000:2010
+year_range <- 2000:2010
 peel <- 0
 
-species_name <- 'bli' 
+species_name <- 'bli'
 
 ## -----------------------------------------------------------------------------
 
@@ -177,7 +181,7 @@ if(read_data && !run_bootstrap){
 
 source(file.path(base_dir, '00-setup', 'setup-fleets.R'))  # Generates fleet_actions
 source(file.path(base_dir, '00-setup', 'setup-likelihood.R'))  # Generates likelihood_actions
-source(file.path(base_dir, '00-setup', 'setup-randomeffects.R'))  # Generates random actions
+source(file.path(base_dir, '00-setup', 'setup-randomeffects_v2.R'))  # Generates random actions
 
 ##### Compile the r- and tmb-based models ######################################
 
@@ -216,9 +220,10 @@ tmb_param <-
   g3_init_guess('bbin', 100, 1e-05, 1000, 1) %>% 
   g3_init_guess('\\.alpha', 0.5, 0.01, 3, 1) %>% 
   g3_init_guess('\\.l50', 50, 10, 100, 1) %>% 
-  g3_init_guess('init.F', 0, 0.1, 1, 0) %>% 
+  g3_init_guess('init.F', 0.2, 0.1, 1, 1) %>% 
   g3_init_guess('\\.M$', 0.15, 0.001, 1, 0) %>% 
-  g3_init_guess('^M$', 0.15, 0.001, 1, 0) %>%  
+  g3_init_guess('M.[0-9]', 0.15, 0.001, 1, 0) %>% 
+  #g3_init_guess('^M$', 0.15, 0.001, 1, 0) %>%  
   g3_init_guess('mat_initial_alpha', 1, 0.5, 2, 1) %>% 
   g3_init_guess('mat_initial_a50', 7, 3, 15, 0) %>% 
   g3_init_guess('mat.alpha', 0.07, 0.01, 0.2, 1) %>%
@@ -238,8 +243,10 @@ tmb_param <-
   ## Random effects/penalities
   g3_init_guess('recruitment_sigma', 0.2, 0.01, 0.4, ifelse(penalise_recruitment == 0, 1, 0)) %>% 
   g3_init_guess('initial_sigma', 0.2, 0.01, 0.4, ifelse(penalise_initial == 0, 1, 0)) %>% 
+  g3_init_guess('M_sigma', 0.00000001, 0.01, 0.4, 0) %>% #ifelse(penalise_initial == 0, 1, 0)) %>% 
   g3_init_guess('rnd_recruitment_weight', 1, 0.01, 100, 0) %>% 
-  g3_init_guess('rnd_initial_weight', 1, 0.01, 100, 0) %>% 
+  g3_init_guess('rnd_initial_weight', 1, 0.01, 100, 0) %>%
+  g3_init_guess('rnd_M_weight', 1, 0.01, 100, 0) %>%
   g3_init_guess('zero', 0, -1, 1, 0) %>% 
   
   ## Weight-length
@@ -317,7 +324,7 @@ save(tmb_model, file = file.path(base_dir, vers, 'tmb_model.Rdata'))
 
 ## -----------------------------------------------------------------------------
 
-if (random_initial || random_recruitment){
+if (random_initial || random_recruitment || random_M){
   
   tmp <- params_final[grepl('weight$', params_final$switch), 'switch']
   tmp <- tmp[tmp %in% tmb_param$switch]

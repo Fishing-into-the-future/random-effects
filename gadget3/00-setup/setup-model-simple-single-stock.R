@@ -58,11 +58,18 @@ stock_actions <-
                                                                            ifelse(init_rec_scalar, 'init.rec.scalar', 'init.scalar'),
                                                                            value = 1, 
                                                                            by_stock = TRUE),
+                                                                       M = gadget3::g3_parameterized('M', 
+                                                                                                     by_stock = stocks, 
+                                                                                                     by_year = timevarying_M),
                                                                        recage = gadget3::g3_stock_def(single_stock, 'minage')),
                                       mean_f = mean_l,
                                       stddev_f = initsd),
     ## Natural mortality
-    gadget3::g3a_naturalmortality(single_stock, gadget3::g3a_naturalmortality_exp()),
+    gadget3::g3a_naturalmortality(single_stock, gadget3::g3a_naturalmortality_exp(
+      gadget3::g3_parameterized('M', 
+                                by_stock = stocks,
+                                by_year = timevarying_M)
+    )),
     ## Ageing
     gadget3::g3a_age(single_stock),
     ## Growth 
